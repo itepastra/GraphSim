@@ -10,4 +10,9 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+description = "A simple graph based simulator of qubits in the clifford set"
 dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/itepastra/GraphSim"
+Issues = "https://github.com/itepastra/GraphSim/issues"
