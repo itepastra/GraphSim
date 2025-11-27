@@ -2603,16 +2603,15 @@ mod graphsim {
             qubits
                 .iter()
                 .map(|&idx| {
-                    let ax = if let Some(det) = changeset.find_deterministic(idx) {
-                        det
+                    let axis = if let Some(deterministic) = changeset.find_deterministic(idx) {
+                        deterministic
                     } else {
                         rand::rng().random()
                     };
 
-                    changeset.measure(idx, ax);
+                    let (result, _) = changeset.measure(idx, axis);
 
-                    todo!();
-                    //(idx, changeset[idx].vop.into())
+                    (idx, Outcome { result, axis })
                 })
                 .collect()
         }
