@@ -2466,7 +2466,7 @@ mod graphsim {
 
     #[pymethods]
     impl GraphSim {
-        #[staticmethod]
+        #[new]
         pub fn new(nodes: usize) -> GraphSim {
             GraphSim {
                 nodes: repeat_n(Node::default(), nodes).collect(),
