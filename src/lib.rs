@@ -23,7 +23,6 @@ mod graphsim {
     };
 
     use crate::{
-        SYMMETRIES,
         cphase_table::CPHASE_TABLE,
         small_tables::{ADJ_TABLE, CONJ_TABLE, DETM_TABLE},
         vop_table::VOP_TABLE,
