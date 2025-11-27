@@ -8,7 +8,7 @@ const MEAS_AXES: usize = 3;
 
 /// Graph-state based quantum circuit simulator exposed as the `graphsim` Python module.
 #[pymodule]
-mod graphsim {
+pub mod graphsim {
     use pyo3::prelude::*;
     use std::{
         collections::{HashSet, VecDeque},
@@ -456,11 +456,12 @@ mod graphsim {
         }
         fn local_comp(&mut self, node: NodeIdx) {
             let len = self[node].len();
+            let adj = self[node].adjacent.clone();
             for i in 0..len {
-                for j in i + 1..len {
-                    self.toggle_edge(self[node].adjacent[i], self[node].adjacent[j]);
+                for j in (i + 1)..len {
+                    self.toggle_edge(adj[i], adj[j]);
                 }
-                let inode = self[node].adjacent[i];
+                let inode = adj[i];
                 self[inode].vop = self[inode].vop * S_GATE;
             }
             self[node].vop = self[node].vop * Vop::YD;
@@ -506,47 +507,47 @@ mod graphsim {
         /// Apply an X (Pauli-X) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn x(&mut self, qubit: NodeIdx) {
+        pub fn x(&mut self, qubit: NodeIdx) {
             self[qubit].vop = X_GATE * self[qubit].vop;
         }
 
         /// Apply a Y (Pauli-Y) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn y(&mut self, qubit: NodeIdx) {
+        pub fn y(&mut self, qubit: NodeIdx) {
             self[qubit].vop = Y_GATE * self[qubit].vop;
         }
 
         /// Apply a Z (Pauli-Z) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn z(&mut self, qubit: NodeIdx) {
+        pub fn z(&mut self, qubit: NodeIdx) {
             self[qubit].vop = Z_GATE * self[qubit].vop;
         }
 
         /// Apply an H (Hadamard) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn h(&mut self, qubit: NodeIdx) {
+        pub fn h(&mut self, qubit: NodeIdx) {
             self[qubit].vop = H_GATE * self[qubit].vop;
         }
 
         /// Apply an S (phase) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn s(&mut self, qubit: NodeIdx) {
+        pub fn s(&mut self, qubit: NodeIdx) {
             self[qubit].vop = S_GATE * self[qubit].vop;
         }
 
         /// Apply an S† (inverse phase) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn sdag(&mut self, qubit: NodeIdx) {
+        pub fn sdag(&mut self, qubit: NodeIdx) {
             self[qubit].vop = SDAG_GATE * self[qubit].vop;
         }
 
         /// Apply a controlled-Z (CZ) gate with `control` and `target` qubits.
-        fn cz(&mut self, control: NodeIdx, target: NodeIdx) {
+        pub fn cz(&mut self, control: NodeIdx, target: NodeIdx) {
             let c_has_t = self[control].len() > 1
                 || (self[control].len() == 1 && self[control].adjacent[0] != target);
             let t_has_c = self[target].len() > 1
@@ -582,50 +583,50 @@ mod graphsim {
         }
 
         /// Apply a controlled-X (CX) / CNOT gate with `control` and `target`.
-        fn cx(&mut self, control: NodeIdx, target: NodeIdx) {
+        pub fn cx(&mut self, control: NodeIdx, target: NodeIdx) {
             self.h(target);
             self.cz(control, target);
             self.h(target);
         }
 
         /// Apply an X-controlled X gate (CX in the X basis).
-        fn xcx(&mut self, control: NodeIdx, target: NodeIdx) {
+        pub fn xcx(&mut self, control: NodeIdx, target: NodeIdx) {
             self.h(control);
             self.cx(control, target);
             self.h(control);
         }
 
         /// Apply a Y-controlled X gate (control qubit in the Y basis).
-        fn ycx(&mut self, control: NodeIdx, target: NodeIdx) {
+        pub fn ycx(&mut self, control: NodeIdx, target: NodeIdx) {
             self.sdag(control);
             self.xcx(control, target);
             self.s(control);
         }
 
         /// Apply an X-controlled Z gate (target in X basis).
-        fn xcz(&mut self, control: NodeIdx, target: NodeIdx) {
+        pub fn xcz(&mut self, control: NodeIdx, target: NodeIdx) {
             self.cx(target, control);
         }
 
         /// Apply a Y-controlled Z gate (target in Y basis).
-        fn ycz(&mut self, control: NodeIdx, target: NodeIdx) {
+        pub fn ycz(&mut self, control: NodeIdx, target: NodeIdx) {
             self.cy(target, control);
         }
 
         /// Apply a controlled-Y (CY) gate with `control` and `target`.
-        fn cy(&mut self, control: NodeIdx, target: NodeIdx) {
+        pub fn cy(&mut self, control: NodeIdx, target: NodeIdx) {
             self.sdag(target);
             self.cx(control, target);
             self.s(target);
         }
 
         /// Apply an X-controlled Y gate (control in X basis).
-        fn xcy(&mut self, control: NodeIdx, target: NodeIdx) {
+        pub fn xcy(&mut self, control: NodeIdx, target: NodeIdx) {
             self.ycx(target, control);
         }
 
         /// Apply a Y-controlled Y gate (both in Y basis).
-        fn ycy(&mut self, control: NodeIdx, target: NodeIdx) {
+        pub fn ycy(&mut self, control: NodeIdx, target: NodeIdx) {
             self.sdag(target);
             self.ycx(control, target);
             self.s(target);
@@ -634,7 +635,7 @@ mod graphsim {
         /// Perform a projective measurement of `qubit` in the X basis.
         ///
         /// Returns `MeasurementResult.PlusOne` or `MeasurementResult.MinusOne`.
-        fn measure_x(&mut self, qubit: NodeIdx) -> MeasurementResult {
+        pub fn measure_x(&mut self, qubit: NodeIdx) -> MeasurementResult {
             let (res, _) = self.measure(qubit, Axis::X);
             res
         }
@@ -642,7 +643,7 @@ mod graphsim {
         /// Perform a projective measurement of `qubit` in the Y basis.
         ///
         /// Returns `MeasurementResult.PlusOne` or `MeasurementResult.MinusOne`.
-        fn measure_y(&mut self, qubit: NodeIdx) -> MeasurementResult {
+        pub fn measure_y(&mut self, qubit: NodeIdx) -> MeasurementResult {
             let (res, _) = self.measure(qubit, Axis::Y);
             res
         }
@@ -650,7 +651,7 @@ mod graphsim {
         /// Perform a projective measurement of `qubit` in the Z basis.
         ///
         /// Returns `MeasurementResult.PlusOne` or `MeasurementResult.MinusOne`.
-        fn measure_z(&mut self, qubit: NodeIdx) -> MeasurementResult {
+        pub fn measure_z(&mut self, qubit: NodeIdx) -> MeasurementResult {
             let (res, _) = self.measure(qubit, Axis::Z);
             res
         }
@@ -658,7 +659,7 @@ mod graphsim {
         /// Return the set of qubits that are entangled with `qubit`.
         ///
         /// This follows adjacency in the underlying graph.
-        fn get_entangled_group(&self, qubit: NodeIdx) -> HashSet<NodeIdx> {
+        pub fn get_entangled_group(&self, qubit: NodeIdx) -> HashSet<NodeIdx> {
             let mut queue = VecDeque::new();
             let mut part = HashSet::new();
             queue.push_back(qubit);
@@ -678,7 +679,7 @@ mod graphsim {
         /// Simulate measurements on a set of `qubits` without modifying the real state.
         ///
         /// Returns a map from qubit index to `Outcome` (result and axis used).
-        fn peek_measure_set(
+        pub fn peek_measure_set(
             &self,
             qubits: HashSet<NodeIdx>,
         ) -> std::collections::HashMap<NodeIdx, Outcome> {
