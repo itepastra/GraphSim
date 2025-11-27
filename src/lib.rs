@@ -2479,52 +2479,52 @@ mod graphsim {
     impl GraphSim {
         /// Create a new simulator with `nodes` qubits, all initialized in the |0⟩ state.
         #[new]
-        pub fn new(nodes: usize) -> GraphSim {
+        pub fn new(qubit_amount: usize) -> GraphSim {
             GraphSim {
-                nodes: repeat_n(Node::default(), nodes).collect(),
+                nodes: repeat_n(Node::default(), qubit_amount).collect(),
             }
         }
 
         /// Apply an X (Pauli-X) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn x(&mut self, node: NodeIdx) {
-            self[node].vop = X_GATE * self[node].vop;
+        fn x(&mut self, qubit: NodeIdx) {
+            self[qubit].vop = X_GATE * self[qubit].vop;
         }
 
         /// Apply a Y (Pauli-Y) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn y(&mut self, node: NodeIdx) {
-            self[node].vop = Y_GATE * self[node].vop;
+        fn y(&mut self, qubit: NodeIdx) {
+            self[qubit].vop = Y_GATE * self[qubit].vop;
         }
 
         /// Apply a Z (Pauli-Z) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn z(&mut self, node: NodeIdx) {
-            self[node].vop = Z_GATE * self[node].vop;
+        fn z(&mut self, qubit: NodeIdx) {
+            self[qubit].vop = Z_GATE * self[qubit].vop;
         }
 
         /// Apply an H (Hadamard) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn h(&mut self, node: NodeIdx) {
-            self[node].vop = H_GATE * self[node].vop;
+        fn h(&mut self, qubit: NodeIdx) {
+            self[qubit].vop = H_GATE * self[qubit].vop;
         }
 
         /// Apply an S (phase) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn s(&mut self, node: NodeIdx) {
-            self[node].vop = S_GATE * self[node].vop;
+        fn s(&mut self, qubit: NodeIdx) {
+            self[qubit].vop = S_GATE * self[qubit].vop;
         }
 
         /// Apply an S† (inverse phase) gate to the given qubit.
         ///
         /// `node` is the index of the qubit.
-        fn sdag(&mut self, node: NodeIdx) {
-            self[node].vop = SDAG_GATE * self[node].vop;
+        fn sdag(&mut self, qubit: NodeIdx) {
+            self[qubit].vop = SDAG_GATE * self[qubit].vop;
         }
 
         /// Apply a controlled-Z (CZ) gate with `control` and `target` qubits.
