@@ -79,9 +79,7 @@ mod graphsim {
     #[derive(Debug)]
     enum Zeta {
         Zero,
-        One,
         Two,
-        Three,
     }
 
     impl Distribution<MeasurementResult> for StandardUniform {
