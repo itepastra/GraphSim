@@ -2258,12 +2258,6 @@ mod graphsim {
     }
 
     impl GraphSim {
-        pub fn new(nodes: usize) -> Self {
-            GraphSim {
-                nodes: repeat_n(Node::default(), nodes).collect(),
-            }
-        }
-
         // Measurement
         fn measure(&mut self, node: NodeIdx, axis: Axis) -> (MeasurementResult, bool) {
             let zeta = find_zeta(self[node].vop.adj(), axis);
@@ -2472,6 +2466,13 @@ mod graphsim {
 
     #[pymethods]
     impl GraphSim {
+        #[staticmethod]
+        pub fn new(nodes: usize) -> GraphSim {
+            GraphSim {
+                nodes: repeat_n(Node::default(), nodes).collect(),
+            }
+        }
+
         fn x(&mut self, node: NodeIdx) {
             self[node].vop = X_GATE * self[node].vop;
         }
