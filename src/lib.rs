@@ -12,7 +12,7 @@ mod graphsim {
     use pyo3::prelude::*;
     use std::{
         collections::{HashSet, VecDeque},
-        fmt::{self, Debug},
+        fmt::{self, Debug, Display, Formatter},
         iter::repeat_n,
         ops::{Index, IndexMut, Mul},
     };
@@ -35,8 +35,8 @@ mod graphsim {
     /// Result of a single-qubit measurement.
     ///
     /// Exposed to Python as `graphsim.MeasurementResult`.
-    #[pyclass]
-    #[derive(PartialEq, Eq, Debug)]
+    #[pyclass(eq, eq_int)]
+    #[derive(PartialEq, Eq, Debug, Clone, Copy)]
     pub enum MeasurementResult {
         /// Eigenvalue +1 outcome.
         PlusOne,
@@ -44,13 +44,28 @@ mod graphsim {
         MinusOne,
     }
 
+    impl Display for MeasurementResult {
+        fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+            match self {
+                MeasurementResult::PlusOne => fmt.write_str("+1"),
+                MeasurementResult::MinusOne => fmt.write_str("-1"),
+            }
+        }
+    }
+
     /// Measurement outcome and the axis that was measured.
     ///
     /// Returned in the values of `peek_measure_set`.
-    #[pyclass]
+    #[pyclass(frozen, get_all, str)]
     pub struct Outcome {
         result: MeasurementResult,
         axis: Axis,
+    }
+
+    impl Display for Outcome {
+        fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+            write!(fmt, "({}, {})", self.axis, self.result)
+        }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -81,11 +96,22 @@ mod graphsim {
         ZF,
     }
 
+    #[pyclass(eq, eq_int)]
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub(crate) enum Axis {
         X,
         Y,
         Z,
+    }
+
+    impl Display for Axis {
+        fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+            match self {
+                Axis::X => fmt.write_str("X"),
+                Axis::Y => fmt.write_str("Y"),
+                Axis::Z => fmt.write_str("Z"),
+            }
+        }
     }
 
     impl Distribution<Axis> for StandardUniform {
