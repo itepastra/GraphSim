@@ -114,16 +114,11 @@ fn scatter_two_qubit_gates(c: &mut Criterion) {
                         _ => {}
                     }
                 }
-                let mut adjacents: HashMap<usize, usize> = HashMap::new();
                 let start = Instant::now();
                 for (c, t) in comb {
                     gs.cz(c, t);
                 }
-                let fin = start.elapsed();
-                let mut hval: Vec<_> = adjacents.iter().collect();
-                hval.sort();
-                println!("histogram of {} iters: {:?}", iters, hval);
-                fin
+                start.elapsed()
             });
         });
     }
