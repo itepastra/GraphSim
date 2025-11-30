@@ -1,8 +1,7 @@
-use std::{iter::zip, time::Instant};
+use std::{collections::HashMap, iter::zip, time::Instant};
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use graphsim::graphsim::GraphSim;
-use rand::random_range;
 
 fn create_qubits(c: &mut Criterion) {
     let mut group = c.benchmark_group("create_qubits");
@@ -48,11 +47,11 @@ fn scatter_single_qubit_gates(c: &mut Criterion) {
     ]
     .iter()
     {
-        let mut gs = GraphSim::new(*size);
         group.throughput(criterion::Throughput::Elements(*size as u64));
         group.bench_function(BenchmarkId::from_parameter(size), |b| {
             b.iter_custom(|iters| {
                 //prepare
+                let mut gs = GraphSim::new(*size);
                 let qubits: Vec<usize> = (0..iters).map(|_| rand::random_range(0..*size)).collect();
                 let start = Instant::now();
                 for qb in qubits {
@@ -115,21 +114,25 @@ fn scatter_two_qubit_gates(c: &mut Criterion) {
                         _ => {}
                     }
                 }
+                let mut adjacents: HashMap<usize, usize> = HashMap::new();
                 let start = Instant::now();
                 for (c, t) in comb {
                     gs.cz(c, t);
                 }
-                start.elapsed()
+                let fin = start.elapsed();
+                let mut hval: Vec<_> = adjacents.iter().collect();
+                hval.sort();
+                println!("histogram of {} iters: {:?}", iters, hval);
+                fin
             });
         });
     }
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    create_qubits,
-    scatter_single_qubit_gates,
-    scatter_two_qubit_gates
-);
+criterion_group! {
+    name = benches;
+    config = Criterion::default();
+    targets = create_qubits, scatter_single_qubit_gates, scatter_two_qubit_gates
+}
 criterion_main!(benches);

@@ -11,7 +11,7 @@ const MEAS_AXES: usize = 3;
 pub mod graphsim {
     use pyo3::prelude::*;
     use std::{
-        collections::{HashSet, VecDeque},
+        collections::{HashMap, HashSet, VecDeque},
         fmt::{self, Debug, Display, Formatter},
         iter::repeat_n,
         ops::{Index, IndexMut, Mul},
@@ -221,7 +221,7 @@ pub mod graphsim {
 
     #[derive(Clone)]
     pub struct Node {
-        adjacent: Vec<NodeIdx>,
+        adjacent: HashSet<NodeIdx>,
         vop: Vop,
     }
 
@@ -251,15 +251,9 @@ pub mod graphsim {
     impl Default for Node {
         fn default() -> Self {
             Self {
-                adjacent: Vec::new(),
+                adjacent: HashSet::new(),
                 vop: Vop::YC,
             }
-        }
-    }
-
-    impl Node {
-        fn len(&self) -> usize {
-            self.adjacent.len()
         }
     }
 
@@ -287,6 +281,16 @@ pub mod graphsim {
     }
 
     impl GraphSim {
+        pub fn adj_hist(&self, hm: &mut HashMap<usize, usize>) {
+            for node in self.nodes.iter() {
+                let l = node.adjacent.len();
+                if let Some(val) = hm.get_mut(&l) {
+                    *val += 1;
+                } else {
+                    hm.insert(l, 1);
+                }
+            }
+        }
         // Measurement
         fn measure(&mut self, node: NodeIdx, axis: Axis) -> (MeasurementResult, bool) {
             let zeta = find_zeta(self[node].vop.adj(), axis);
@@ -316,16 +320,14 @@ pub mod graphsim {
             }
 
             let res: MeasurementResult = rand::rng().random();
-            let other: NodeIdx = self[node].adjacent[0];
+            let other: NodeIdx = self[node].adjacent.take(&1).unwrap();
 
             match res {
                 MeasurementResult::PlusOne => {
                     self[other].vop = self[other].vop * Vop::ZC;
-                    let size = self[node].len();
-                    for i in 0..size {
-                        let third = self[node].adjacent[i];
-                        if third != other && !self[other].adjacent.contains(&third) {
-                            self[third].vop = self[third].vop * Z_GATE;
+                    for third in self[node].adjacent.clone().iter() {
+                        if *third != other && !self[other].adjacent.contains(third) {
+                            self[*third].vop = self[*third].vop * Z_GATE;
                         }
                     }
                 }
@@ -333,11 +335,9 @@ pub mod graphsim {
                     self[other].vop = self[other].vop * Vop::XC;
                     self[node].vop = self[node].vop * Vop::ZA;
 
-                    let size = self[other].len();
-                    for i in 0..size {
-                        let third = self[other].adjacent[i];
-                        if third != node && !self[node].adjacent.contains(&third) {
-                            self[third].vop = self[third].vop * Z_GATE;
+                    for third in self[other].adjacent.clone().iter() {
+                        if *third != other && !self[other].adjacent.contains(third) {
+                            self[*third].vop = self[*third].vop * Z_GATE;
                         }
                     }
                 }
@@ -347,41 +347,30 @@ pub mod graphsim {
             let other_nbs = self[other].adjacent.clone();
 
             let mut procced_edges: HashSet<(NodeIdx, NodeIdx)> = HashSet::new();
-            let nlen = node_nbs.len();
-            let olen = other_nbs.len();
-            for i in 0..nlen {
-                let nval = node_nbs[i];
-                for j in 0..olen {
-                    let oval = other_nbs[j];
+            for nval in node_nbs.iter() {
+                for oval in other_nbs.iter() {
                     let combined = match nval < oval {
                         true => (nval, oval),
                         false => (oval, nval),
                     };
-                    if nval != oval && !procced_edges.contains(&combined) {
-                        procced_edges.insert(combined);
-                        self.toggle_edge(combined.0, combined.1);
+                    if nval != oval && !procced_edges.contains(&(*combined.0, *combined.1)) {
+                        procced_edges.insert((*combined.0, *combined.1));
+                        self.toggle_edge(*combined.0, *combined.1);
                     }
                 }
             }
 
-            let mut intersection = Vec::new();
-            for i in 0..nlen {
-                if other_nbs.contains(&node_nbs[i]) {
-                    intersection.push(node_nbs[i]);
-                }
-            }
-
+            let intersection: Vec<_> = node_nbs.intersection(&other_nbs).into_iter().collect();
             let ilen = intersection.len();
             for i in 0..ilen {
-                for j in i + 1..ilen {
-                    self.toggle_edge(intersection[i], intersection[j]);
+                for j in (i + 1)..ilen {
+                    self.toggle_edge(*intersection[i], *intersection[j]);
                 }
             }
 
-            for i in 0..nlen {
-                let nadj_i = node_nbs[i];
-                if nadj_i != other {
-                    self.toggle_edge(other, nadj_i);
+            for nval in node_nbs {
+                if nval != other {
+                    self.toggle_edge(other, nval);
                 }
             }
 
@@ -390,23 +379,20 @@ pub mod graphsim {
         fn int_measure_y(&mut self, node: NodeIdx) -> MeasurementResult {
             let res = rand::rng().random();
 
-            let nlen = self[node].len();
-            for i in 0..nlen {
-                let other = self[node].adjacent[i];
+            for &other in self[node].adjacent.clone().iter() {
                 match res {
                     MeasurementResult::PlusOne => self[other].vop = self[other].vop * S_GATE,
                     MeasurementResult::MinusOne => self[other].vop = self[other].vop * SDAG_GATE,
                 }
             }
 
+            let adj: Vec<_> = self[node].adjacent.clone().into_iter().collect();
+            let nlen = adj.len();
+
             for i in 0..nlen {
-                let nval = self[node].adjacent[i];
+                let nval = adj[i];
                 for j in i + 1..=nlen {
-                    let oval = if j == nlen {
-                        node
-                    } else {
-                        self[node].adjacent[j]
-                    };
+                    let oval = if j == nlen { node } else { adj[j] };
                     self.toggle_edge(nval, oval);
                 }
             }
@@ -421,9 +407,7 @@ pub mod graphsim {
         fn int_measure_z(&mut self, node: NodeIdx) -> MeasurementResult {
             let res = rand::rng().random();
 
-            let nlen = self[node].len();
-            for i in 0..nlen {
-                let other = self[node].adjacent[i];
+            for &other in self[node].adjacent.clone().iter() {
                 self.delete_edge(node, other);
                 if res == MeasurementResult::MinusOne {
                     self[other].vop = self[other].vop * Z_GATE;
@@ -455,8 +439,8 @@ pub mod graphsim {
             }
         }
         fn local_comp(&mut self, node: NodeIdx) {
-            let len = self[node].len();
-            let adj = self[node].adjacent.clone();
+            let adj: Vec<_> = self[node].adjacent.clone().into_iter().collect();
+            let len = adj.len();
             for i in 0..len {
                 for j in (i + 1)..len {
                     self.toggle_edge(adj[i], adj[j]);
@@ -467,22 +451,21 @@ pub mod graphsim {
             self[node].vop = self[node].vop * Vop::YD;
         }
         fn toggle_edge(&mut self, na: NodeIdx, nb: NodeIdx) -> bool {
-            let lba = self[na].len();
-            let lbb = self[nb].len();
-            self[na].adjacent.retain(|&v| v != nb);
-            self[nb].adjacent.retain(|&v| v != na);
-            if lba == self[na].len() {
-                debug_assert_eq!(lbb, self[nb].len());
-                self[na].adjacent.push(nb);
-                self[nb].adjacent.push(na);
-                false
-            } else {
+            let a_has_b = self[na].adjacent.remove(&nb);
+            let b_has_a = self[nb].adjacent.remove(&na);
+            assert_eq!(a_has_b, b_has_a);
+
+            if a_has_b {
                 true
+            } else {
+                self[na].adjacent.insert(nb);
+                self[nb].adjacent.insert(na);
+                false
             }
         }
         fn delete_edge(&mut self, na: NodeIdx, nb: NodeIdx) {
-            self[na].adjacent.retain(|&v| v != nb);
-            self[nb].adjacent.retain(|&v| v != na);
+            self[na].adjacent.remove(&nb);
+            self[nb].adjacent.remove(&na);
         }
 
         fn find_deterministic(&self, node: NodeIdx) -> Option<Axis> {
@@ -548,18 +531,29 @@ pub mod graphsim {
 
         /// Apply a controlled-Z (CZ) gate with `control` and `target` qubits.
         pub fn cz(&mut self, control: NodeIdx, target: NodeIdx) {
-            let c_has_t = self[control].len() > 1
-                || (self[control].len() == 1 && self[control].adjacent[0] != target);
-            let t_has_c = self[target].len() > 1
-                || (self[target].len() == 1 && self[target].adjacent[0] != control);
+            // println!(
+            //     "performing cnot between {control} and {target}, with adjacent {:#?} and {:#?} respectively",
+            //     self[control].adjacent, self[target].adjacent
+            // );
+            assert_ne!(control, target, "Same control and target not allowed");
+            let c_has_non_t = self[control].adjacent.len()
+                >= match self[control].adjacent.contains(&target) {
+                    true => 2,
+                    false => 1,
+                };
+            let t_has_non_c = self[target].adjacent.len()
+                >= match self[target].adjacent.contains(&control) {
+                    true => 2,
+                    false => 1,
+                };
 
-            if c_has_t {
+            if c_has_non_t {
                 self.remove_vop(control, target);
             }
-            if t_has_c {
+            if t_has_non_c {
                 self.remove_vop(target, control);
             }
-            if c_has_t && !self[control].vop.is_in_z() {
+            if c_has_non_t && !self[control].vop.is_in_z() {
                 self.remove_vop(control, target);
             }
 
@@ -572,11 +566,11 @@ pub mod graphsim {
             let val = CPHASE_TABLE[had_edge][cv as usize][tv as usize];
 
             if val.0 {
-                self[control].adjacent.push(target);
-                self[target].adjacent.push(control);
+                self[control].adjacent.insert(target);
+                self[target].adjacent.insert(control);
             } else {
-                self[control].adjacent.retain(|&v| v != target);
-                self[target].adjacent.retain(|&v| v != control);
+                self[control].adjacent.remove(&target);
+                self[target].adjacent.remove(&control);
             }
             self[control].vop = val.1;
             self[target].vop = val.2;

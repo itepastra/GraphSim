@@ -34,7 +34,12 @@
           buildInputs = with pkgs; [
             rustToolchain
             clang
+            cargo-flamegraph
             llvmPackages_latest.bintools
+            gnuplot
+            (python3.withPackages (ppkgs: [
+              ppkgs.matplotlib
+            ]))
           ];
         };
       }
