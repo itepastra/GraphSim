@@ -422,6 +422,9 @@ pub mod graphsim {
             res
         }
         // Helper functions
+        /// remove the local operators non-Z stabilisation by swapping with its neighbours
+        ///
+        /// Scales as O(?)
         fn remove_vop(&mut self, first: NodeIdx, avoid: NodeIdx) {
             let mut second: NodeIdx = avoid;
             for attempt in &self[first].adjacent {
@@ -438,18 +441,43 @@ pub mod graphsim {
                 }
             }
         }
+
+        // set = {12,125,123,198,5}
+        // index i, j
+        // i = 0 -> j = 1..5
+        // i = 1 -> j = 2..5
+        // i = 2 -> j = 3..5
+        // i = 3 -> j = 4..5
+        // i = 4 -> j = 5..5
+        //
+        //
+        // for i in set.iter() {
+        //   for j in set.iter().skip(i) {
+        //     do_something(set[i], set[j])
+        //   }
+        // }
+
+        /// do a local complementation of a qubit with its surroundings
+        ///
+        /// Scales as O(?)
         fn local_comp(&mut self, node: NodeIdx) {
-            let adj: Vec<_> = self[node].adjacent.clone().into_iter().collect();
-            let len = adj.len();
-            for i in 0..len {
-                for j in (i + 1)..len {
-                    self.toggle_edge(adj[i], adj[j]);
+            let rself: *mut Self = self as *mut Self;
+
+            for i in self[node].adjacent.iter() {
+                for j in self[node].adjacent.iter().skip(*i) {
+                    unsafe {
+                        let dupself = &mut *rself;
+                        dupself.toggle_edge(*i, *j);
+                    }
                 }
-                let inode = adj[i];
-                self[inode].vop = self[inode].vop * S_GATE;
+                unsafe {
+                    let dupself = &mut *rself;
+                    dupself[*i].vop = dupself[*i].vop * S_GATE;
+                }
             }
             self[node].vop = self[node].vop * Vop::YD;
         }
+
         fn toggle_edge(&mut self, na: NodeIdx, nb: NodeIdx) -> bool {
             let a_has_b = self[na].adjacent.remove(&nb);
             let b_has_a = self[nb].adjacent.remove(&na);
