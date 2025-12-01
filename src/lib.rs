@@ -442,21 +442,6 @@ pub mod graphsim {
             }
         }
 
-        // set = {12,125,123,198,5}
-        // index i, j
-        // i = 0 -> j = 1..5
-        // i = 1 -> j = 2..5
-        // i = 2 -> j = 3..5
-        // i = 3 -> j = 4..5
-        // i = 4 -> j = 5..5
-        //
-        //
-        // for i in set.iter() {
-        //   for j in set.iter().skip(i) {
-        //     do_something(set[i], set[j])
-        //   }
-        // }
-
         /// do a local complementation of a qubit with its surroundings
         ///
         /// Scales as O(d^2 * O(toggle_edge))
