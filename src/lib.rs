@@ -459,21 +459,15 @@ pub mod graphsim {
 
         /// do a local complementation of a qubit with its surroundings
         ///
-        /// Scales as O(?)
+        /// Scales as O(d^2 * O(toggle_edge))
         fn local_comp(&mut self, node: NodeIdx) {
             let rself: *mut Self = self as *mut Self;
 
-            for i in self[node].adjacent.iter() {
-                for j in self[node].adjacent.iter().skip(*i) {
-                    unsafe {
-                        let dupself = &mut *rself;
-                        dupself.toggle_edge(*i, *j);
-                    }
+            for (idx, i) in unsafe { (&mut *rself)[node].adjacent.iter().enumerate() } {
+                for j in unsafe { (&mut *rself)[node].adjacent.iter().skip(idx + 1) } {
+                    self.toggle_edge(*i, *j);
                 }
-                unsafe {
-                    let dupself = &mut *rself;
-                    dupself[*i].vop = dupself[*i].vop * S_GATE;
-                }
+                self[*i].vop = self[*i].vop * S_GATE;
             }
             self[node].vop = self[node].vop * Vop::YD;
         }
