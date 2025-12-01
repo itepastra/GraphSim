@@ -9,6 +9,7 @@ const MEAS_AXES: usize = 3;
 /// Graph-state based quantum circuit simulator exposed as the `graphsim` Python module.
 #[pymodule]
 pub mod graphsim {
+    use bit_set::BitSet;
     use pyo3::prelude::*;
     use std::{
         collections::{HashMap, HashSet, VecDeque},
@@ -226,7 +227,7 @@ pub mod graphsim {
     #[pyclass]
     pub struct GraphSim {
         vop: Vec<Vop>,
-        adjacent: Vec<HashSet<NodeIdx>>,
+        adjacent: Vec<BitSet>,
     }
 
     impl GraphSim {
@@ -269,14 +270,20 @@ pub mod graphsim {
             }
 
             let res: MeasurementResult = rand::rng().random();
-            let other: NodeIdx = self.adjacent[node].take(&1).unwrap();
+            let other: NodeIdx = self.adjacent[node]
+                .iter()
+                .take(1)
+                .next()
+                .expect("Self.adjacent[node] is non-empty");
+
+            let rself = self as *mut Self;
 
             match res {
                 MeasurementResult::PlusOne => {
                     self.vop[other] = self.vop[other] * Vop::ZC;
-                    for third in self.adjacent[node].clone().iter() {
-                        if *third != other && !self.adjacent[other].contains(third) {
-                            self.vop[*third] = self.vop[*third] * Z_GATE;
+                    for third in unsafe { (&mut *rself).adjacent[node].iter() } {
+                        if third != other && !self.adjacent[other].contains(third) {
+                            self.vop[third] = self.vop[third] * Z_GATE;
                         }
                     }
                 }
@@ -284,9 +291,9 @@ pub mod graphsim {
                     self.vop[other] = self.vop[other] * Vop::XC;
                     self.vop[node] = self.vop[node] * Vop::ZA;
 
-                    for third in self.adjacent[other].clone().iter() {
-                        if *third != other && !self.adjacent[other].contains(third) {
-                            self.vop[*third] = self.vop[*third] * Z_GATE;
+                    for third in unsafe { (&mut *rself).adjacent[other].iter() } {
+                        if third != other && !self.adjacent[other].contains(third) {
+                            self.vop[third] = self.vop[third] * Z_GATE;
                         }
                     }
                 }
@@ -302,9 +309,9 @@ pub mod graphsim {
                         true => (nval, oval),
                         false => (oval, nval),
                     };
-                    if nval != oval && !procced_edges.contains(&(*combined.0, *combined.1)) {
-                        procced_edges.insert((*combined.0, *combined.1));
-                        self.toggle_edge(*combined.0, *combined.1);
+                    if nval != oval && !procced_edges.contains(&(combined.0, combined.1)) {
+                        procced_edges.insert(combined);
+                        self.toggle_edge(combined.0, combined.1);
                     }
                 }
             }
@@ -313,11 +320,11 @@ pub mod graphsim {
             let ilen = intersection.len();
             for i in 0..ilen {
                 for j in (i + 1)..ilen {
-                    self.toggle_edge(*intersection[i], *intersection[j]);
+                    self.toggle_edge(intersection[i], intersection[j]);
                 }
             }
 
-            for nval in node_nbs {
+            for nval in node_nbs.iter() {
                 if nval != other {
                     self.toggle_edge(other, nval);
                 }
@@ -328,7 +335,7 @@ pub mod graphsim {
         fn int_measure_y(&mut self, node: NodeIdx) -> MeasurementResult {
             let res = rand::rng().random();
 
-            for &other in self.adjacent[node].clone().iter() {
+            for other in self.adjacent[node].clone().iter() {
                 match res {
                     MeasurementResult::PlusOne => self.vop[other] = self.vop[other] * S_GATE,
                     MeasurementResult::MinusOne => self.vop[other] = self.vop[other] * SDAG_GATE,
@@ -356,7 +363,7 @@ pub mod graphsim {
         fn int_measure_z(&mut self, node: NodeIdx) -> MeasurementResult {
             let res = rand::rng().random();
 
-            for &other in self.adjacent[node].clone().iter() {
+            for other in self.adjacent[node].clone().iter() {
                 self.delete_edge(node, other);
                 if res == MeasurementResult::MinusOne {
                     self.vop[other] = self.vop[other] * Z_GATE;
@@ -377,8 +384,8 @@ pub mod graphsim {
         fn remove_vop(&mut self, first: NodeIdx, avoid: NodeIdx) {
             let mut second: NodeIdx = avoid;
             for attempt in &self.adjacent[first] {
-                if *attempt != avoid {
-                    second = *attempt;
+                if attempt != avoid {
+                    second = attempt;
                     break;
                 }
             }
@@ -399,17 +406,17 @@ pub mod graphsim {
 
             for (idx, i) in unsafe { (&mut *rself).adjacent[node].iter().enumerate() } {
                 for j in unsafe { (&mut *rself).adjacent[node].iter().skip(idx + 1) } {
-                    self.toggle_edge(*i, *j);
+                    self.toggle_edge(i, j);
                 }
-                self.vop[*i] = self.vop[*i] * S_GATE;
+                self.vop[i] = self.vop[i] * S_GATE;
             }
             self.vop[node] = self.vop[node] * Vop::YD;
         }
 
         fn toggle_edge(&mut self, na: NodeIdx, nb: NodeIdx) -> bool {
             debug_assert_ne!(na, nb, "Can't toggle edge between qubit and itself");
-            let a_has_b = self.adjacent[na].remove(&nb);
-            let b_has_a = self.adjacent[nb].remove(&na);
+            let a_has_b = self.adjacent[na].remove(nb);
+            let b_has_a = self.adjacent[nb].remove(na);
             debug_assert_eq!(
                 a_has_b, b_has_a,
                 "A has B needs to be the same as B having A"
@@ -426,8 +433,8 @@ pub mod graphsim {
 
         fn delete_edge(&mut self, na: NodeIdx, nb: NodeIdx) {
             debug_assert_ne!(na, nb, "Can't delete edge between qubit and itself");
-            self.adjacent[na].remove(&nb);
-            self.adjacent[nb].remove(&na);
+            self.adjacent[na].remove(nb);
+            self.adjacent[nb].remove(na);
         }
 
         fn find_deterministic(&self, node: NodeIdx) -> Option<Axis> {
@@ -446,7 +453,7 @@ pub mod graphsim {
         pub fn new(qubit_amount: usize) -> GraphSim {
             GraphSim {
                 vop: repeat_n(Vop::YC, qubit_amount).collect(),
-                adjacent: repeat_n(HashSet::new(), qubit_amount).collect(),
+                adjacent: repeat_n(BitSet::with_capacity(qubit_amount), qubit_amount).collect(),
             }
         }
 
@@ -500,12 +507,12 @@ pub mod graphsim {
             // );
             assert_ne!(control, target, "Same control and target not allowed");
             let c_has_non_t = self.adjacent[control].len()
-                >= match self.adjacent[control].contains(&target) {
+                >= match self.adjacent[control].contains(target) {
                     true => 2,
                     false => 1,
                 };
             let t_has_non_c = self.adjacent[target].len()
-                >= match self.adjacent[target].contains(&control) {
+                >= match self.adjacent[target].contains(control) {
                     true => 2,
                     false => 1,
                 };
@@ -522,7 +529,7 @@ pub mod graphsim {
 
             let cv = self.vop[control];
             let tv = self.vop[target];
-            let had_edge = match self.adjacent[control].contains(&target) {
+            let had_edge = match self.adjacent[control].contains(target) {
                 true => 1,
                 false => 0,
             };
@@ -532,8 +539,8 @@ pub mod graphsim {
                 self.adjacent[control].insert(target);
                 self.adjacent[target].insert(control);
             } else {
-                self.adjacent[control].remove(&target);
-                self.adjacent[target].remove(&control);
+                self.adjacent[control].remove(target);
+                self.adjacent[target].remove(control);
             }
             self.vop[control] = val.1;
             self.vop[target] = val.2;
@@ -623,9 +630,9 @@ pub mod graphsim {
             part.insert(qubit);
             while let Some(val) = queue.pop_front() {
                 for adj in &self.adjacent[val] {
-                    if !part.contains(adj) {
-                        queue.push_back(*adj);
-                        part.insert(*adj);
+                    if !part.contains(&adj) {
+                        queue.push_back(adj);
+                        part.insert(adj);
                     }
                 }
             }
