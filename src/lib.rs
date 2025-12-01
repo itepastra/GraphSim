@@ -13,9 +13,9 @@ pub mod graphsim {
     use pyo3::prelude::*;
     use std::{
         collections::{HashMap, HashSet, VecDeque},
-        fmt::{self, Debug, Display, Formatter},
-        iter::repeat_n,
-        ops::{Index, IndexMut, Mul},
+        fmt::{Debug, Display, Formatter},
+        iter::{once, repeat_n},
+        ops::Mul,
     };
 
     use rand::{
@@ -300,7 +300,7 @@ pub mod graphsim {
             }
 
             let node_nbs = self.adjacent[node].clone();
-            let other_nbs = self.adjacent[other].clone();
+            let mut other_nbs = self.adjacent[other].clone();
 
             let mut procced_edges: HashSet<(NodeIdx, NodeIdx)> = HashSet::new();
             for nval in node_nbs.iter() {
@@ -309,18 +309,20 @@ pub mod graphsim {
                         true => (nval, oval),
                         false => (oval, nval),
                     };
-                    if nval != oval && !procced_edges.contains(&(combined.0, combined.1)) {
+                    if nval != oval {
                         procced_edges.insert(combined);
-                        self.toggle_edge(combined.0, combined.1);
                     }
                 }
             }
 
-            let intersection: Vec<_> = node_nbs.intersection(&other_nbs).into_iter().collect();
-            let ilen = intersection.len();
-            for i in 0..ilen {
-                for j in (i + 1)..ilen {
-                    self.toggle_edge(intersection[i], intersection[j]);
+            for (i, j) in procced_edges {
+                self.toggle_edge(i, j);
+            }
+
+            other_nbs.intersect_with(&node_nbs);
+            for (idx, i) in other_nbs.iter().enumerate() {
+                for j in other_nbs.iter().skip(idx) {
+                    self.toggle_edge(i, j);
                 }
             }
 
@@ -335,21 +337,18 @@ pub mod graphsim {
         fn int_measure_y(&mut self, node: NodeIdx) -> MeasurementResult {
             let res = rand::rng().random();
 
-            for other in self.adjacent[node].clone().iter() {
+            let adj = self.adjacent[node].clone();
+
+            for other in adj.iter() {
                 match res {
                     MeasurementResult::PlusOne => self.vop[other] = self.vop[other] * S_GATE,
                     MeasurementResult::MinusOne => self.vop[other] = self.vop[other] * SDAG_GATE,
                 }
             }
 
-            let adj: Vec<_> = self.adjacent[node].clone().into_iter().collect();
-            let nlen = adj.len();
-
-            for i in 0..nlen {
-                let nval = adj[i];
-                for j in i + 1..=nlen {
-                    let oval = if j == nlen { node } else { adj[j] };
-                    self.toggle_edge(nval, oval);
+            for (idx, i) in adj.iter().enumerate() {
+                for j in adj.iter().skip(idx).chain(once(node)) {
+                    self.toggle_edge(i, j);
                 }
             }
 
@@ -643,10 +642,7 @@ pub mod graphsim {
         /// Simulate measurements on a set of `qubits` without modifying the real state.
         ///
         /// Returns a map from qubit index to `Outcome` (result and axis used).
-        pub fn peek_measure_set(
-            &self,
-            qubits: HashSet<NodeIdx>,
-        ) -> std::collections::HashMap<NodeIdx, Outcome> {
+        pub fn peek_measure_set(&self, qubits: HashSet<NodeIdx>) -> HashMap<NodeIdx, Outcome> {
             let mut changeset = self.clone();
             qubits
                 .iter()
