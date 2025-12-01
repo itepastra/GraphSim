@@ -219,35 +219,6 @@ pub mod graphsim {
         }
     }
 
-    #[derive(Clone)]
-    pub struct Node {
-        adjacent: HashSet<NodeIdx>,
-        vop: Vop,
-    }
-
-    impl Debug for Node {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.debug_struct("Node")
-                .field("adjacent", &self.adjacent)
-                .field("vop", &self.vop)
-                .field("disp", &self.get_state_str())
-                .finish()
-        }
-    }
-
-    impl Node {
-        fn get_state_str(&self) -> &'static str {
-            match self.vop {
-                Vop::IA | Vop::XA | Vop::YD | Vop::ZD => "+",
-                Vop::YA | Vop::ZA | Vop::ID | Vop::XD => "-",
-                Vop::IB | Vop::XB | Vop::YE | Vop::ZE => "+i",
-                Vop::YB | Vop::ZB | Vop::IE | Vop::XE => "-i",
-                Vop::IC | Vop::XC | Vop::YF | Vop::ZF => "1",
-                Vop::YC | Vop::ZC | Vop::IF | Vop::XF => "0",
-            }
-        }
-    }
-
     /// Simulator for graph states over a fixed number of qubits.
     ///
     /// Use this class from Python to apply gates and perform measurements.
