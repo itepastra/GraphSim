@@ -96,6 +96,19 @@ pub mod graphsim {
         ZF,
     }
 
+    impl Vop {
+        pub fn get_state_str(&self) -> &'static str {
+            match self {
+                Vop::IA | Vop::XA | Vop::YD | Vop::ZD => "+",
+                Vop::YA | Vop::ZA | Vop::ID | Vop::XD => "-",
+                Vop::IB | Vop::XB | Vop::YE | Vop::ZE => "+i",
+                Vop::YB | Vop::ZB | Vop::IE | Vop::XE => "-i",
+                Vop::IC | Vop::XC | Vop::YF | Vop::ZF => "1",
+                Vop::YC | Vop::ZC | Vop::IF | Vop::XF => "0",
+            }
+        }
+    }
+
     #[pyclass(eq, eq_int)]
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub(crate) enum Axis {
@@ -223,7 +236,7 @@ pub mod graphsim {
     /// Simulator for graph states over a fixed number of qubits.
     ///
     /// Use this class from Python to apply gates and perform measurements.
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     #[pyclass]
     pub struct GraphSim {
         vop: Vec<Vop>,
@@ -670,6 +683,150 @@ pub mod graphsim {
         ) {
             (true, true) | (false, false) => Zeta::Two,
             (true, false) | (false, true) => Zeta::Zero,
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        #[test]
+        fn test_single_qubit_gates() {
+            let mut qec = GraphSim::new(1);
+            assert_eq!(qec.vop[0], Vop::YC);
+            qec.h(0);
+            assert_eq!(qec.vop[0], Vop::IA);
+            qec.s(0);
+            assert_eq!(qec.vop[0], Vop::YB);
+            qec.s(0);
+            assert_eq!(qec.vop[0], Vop::ZA);
+            qec.z(0);
+            assert_eq!(qec.vop[0], Vop::IA);
+            qec.sdag(0);
+            assert_eq!(qec.vop[0], Vop::XB);
+            qec.z(0);
+            assert_eq!(qec.vop[0], Vop::YB);
+        }
+
+        #[test]
+        fn test_measure_single_z_det() {
+            let mut qec = GraphSim::new(1);
+
+            let (outcome, det) = qec.measure(0, Axis::Z);
+            assert_eq!(outcome, MeasurementResult::PlusOne);
+            assert_eq!(det, true);
+
+            qec.s(0);
+            let (outcome, det) = qec.measure(0, Axis::Z);
+            assert_eq!(outcome, MeasurementResult::PlusOne);
+            assert_eq!(det, true);
+
+            qec.s(0);
+            let (outcome, det) = qec.measure(0, Axis::Z);
+            assert_eq!(outcome, MeasurementResult::PlusOne);
+            assert_eq!(det, true);
+
+            qec.s(0);
+            let (outcome, det) = qec.measure(0, Axis::Z);
+            assert_eq!(outcome, MeasurementResult::PlusOne);
+            assert_eq!(det, true);
+
+            qec.x(0);
+            let (outcome, det) = qec.measure(0, Axis::Z);
+            assert_eq!(outcome, MeasurementResult::MinusOne);
+            assert_eq!(det, true);
+
+            qec.s(0);
+            let (outcome, det) = qec.measure(0, Axis::Z);
+            assert_eq!(outcome, MeasurementResult::MinusOne);
+            assert_eq!(det, true);
+
+            qec.s(0);
+            let (outcome, det) = qec.measure(0, Axis::Z);
+            assert_eq!(outcome, MeasurementResult::MinusOne);
+            assert_eq!(det, true);
+
+            qec.s(0);
+            let (outcome, det) = qec.measure(0, Axis::Z);
+            assert_eq!(outcome, MeasurementResult::MinusOne);
+            assert_eq!(det, true);
+        }
+
+        #[test]
+        fn test_cnot_measure_x() {
+            let mut qec = GraphSim::new(2);
+
+            qec.h(0);
+            qec.cx(0, 1);
+
+            println!("state is {:#?} before meas", qec);
+            let (outcome_1, det_1) = qec.measure(0, Axis::X);
+            println!(
+                "state is {:#?} between meas, outcome was {:?}",
+                qec, outcome_1
+            );
+            let (outcome_2, det_2) = qec.measure(1, Axis::X);
+            println!(
+                "state is {:#?} after meas, outcome was {:?}",
+                qec, outcome_2
+            );
+
+            assert_eq!(det_1, false);
+            assert_eq!(det_2, true);
+
+            assert_eq!(qec.vop[0].get_state_str(), qec.vop[1].get_state_str());
+            assert_eq!(outcome_1, outcome_2);
+        }
+
+        #[test]
+        fn test_cnot_measure_y() {
+            let mut qec = GraphSim::new(2);
+
+            qec.h(0);
+            qec.cx(0, 1);
+
+            println!("state is {:#?} before meas", qec);
+            let (outcome_1, det_1) = qec.measure(0, Axis::Y);
+            println!(
+                "state is {:#?} between meas, outcome was {:?}",
+                qec, outcome_1
+            );
+            let (outcome_2, det_2) = qec.measure(1, Axis::Y);
+            println!(
+                "state is {:#?} after meas, outcome was {:?}",
+                qec, outcome_2
+            );
+
+            assert_eq!(det_1, false);
+            assert_eq!(det_2, true);
+
+            assert_ne!(qec.vop[0].get_state_str(), qec.vop[1].get_state_str());
+            assert_ne!(outcome_1, outcome_2);
+        }
+
+        #[test]
+        fn test_cnot_measure_z() {
+            let mut qec = GraphSim::new(2);
+
+            qec.h(0);
+            qec.cx(0, 1);
+
+            println!("state is {:#?} before meas", qec);
+            let (outcome_1, det_1) = qec.measure(0, Axis::Z);
+            println!(
+                "state is {:#?} between meas, outcome was {:?}",
+                qec, outcome_1
+            );
+            let (outcome_2, det_2) = qec.measure(1, Axis::Z);
+            println!(
+                "state is {:#?} after meas, outcome was {:?}",
+                qec, outcome_2
+            );
+
+            assert_eq!(det_1, false);
+            assert_eq!(det_2, true);
+
+            assert_eq!(qec.vop[0].get_state_str(), qec.vop[1].get_state_str());
+            assert_eq!(outcome_1, outcome_2);
         }
     }
 }
