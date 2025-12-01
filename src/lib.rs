@@ -334,7 +334,7 @@ pub mod graphsim {
 
             other_nbs.intersect_with(&node_nbs);
             for (idx, i) in other_nbs.iter().enumerate() {
-                for j in other_nbs.iter().skip(idx) {
+                for j in other_nbs.iter().skip(idx + 1) {
                     self.toggle_edge(i, j);
                 }
             }
@@ -360,7 +360,7 @@ pub mod graphsim {
             }
 
             for (idx, i) in adj.iter().enumerate() {
-                for j in adj.iter().skip(idx).chain(once(node)) {
+                for j in adj.iter().skip(idx + 1).chain(once(node)) {
                     self.toggle_edge(i, j);
                 }
             }
