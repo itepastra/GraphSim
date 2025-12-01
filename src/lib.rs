@@ -458,9 +458,13 @@ pub mod graphsim {
         }
 
         fn toggle_edge(&mut self, na: NodeIdx, nb: NodeIdx) -> bool {
+            debug_assert_ne!(na, nb, "Can't toggle edge between qubit and itself");
             let a_has_b = self[na].adjacent.remove(&nb);
             let b_has_a = self[nb].adjacent.remove(&na);
-            assert_eq!(a_has_b, b_has_a);
+            debug_assert_eq!(
+                a_has_b, b_has_a,
+                "A has B needs to be the same as B having A"
+            );
 
             if a_has_b {
                 true
@@ -470,7 +474,9 @@ pub mod graphsim {
                 false
             }
         }
+
         fn delete_edge(&mut self, na: NodeIdx, nb: NodeIdx) {
+            debug_assert_ne!(na, nb, "Can't delete edge between qubit and itself");
             self[na].adjacent.remove(&nb);
             self[nb].adjacent.remove(&na);
         }
